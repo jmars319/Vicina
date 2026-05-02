@@ -162,10 +162,10 @@ dev_start_web() {
   log_info "[dev-web] host=$(dev_web_url /) dir=${DEV_WEB_DIR} health=${DEV_WEB_HEALTH_PATH}"
   log_step "[dev-web] launching next dev"
 
-  (
-    cd "${REPO_ROOT}"
-    exec pnpm --filter @vicina/webapp exec next dev -H "${DEV_WEB_HOST}" -p "${DEV_WEB_PORT}"
-  ) > "${log_file}" 2>&1 &
+  nohup bash -c '
+    cd "$1"
+    exec pnpm --filter @vicina/webapp exec next dev -H "$2" -p "$3"
+  ' bash "${REPO_ROOT}" "${DEV_WEB_HOST}" "${DEV_WEB_PORT}" > "${log_file}" 2>&1 &
 
   pid="$!"
   disown "${pid}" 2>/dev/null || true
