@@ -83,7 +83,7 @@ The primary web surface uses Next.js App Router with a small design system under
 Routes:
 
 - `/`: landing/hero with full Vicina lockup
-- `/nearby`: active signals with distance, category, time, and explicit sort controls
+- `/nearby`: active signals with area, distance, category, time, and explicit sort controls
 - `/create`: lightweight signal creation form with Zod validation
 - `/profile`: display name, bio, and local user's active signals
 - `/signal/[id]`: signal detail, interest button, thread, report, and block actions
@@ -198,6 +198,7 @@ replying, reporting, and blocking require Supabase auth.
 - Web root renders the full brand lockup.
 - Web header renders icon + `Vicina` without the tagline.
 - Web `/nearby`, `/create`, `/profile`, and `/signal/[id]` routes render.
+- Web nearby supports selecting a browse area before applying distance filters.
 - Web create signal form validates required fields and 24-hour max expiration.
 - Auth screen renders at `/auth`.
 - Nearby tab renders seeded active signals.

@@ -16,7 +16,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Input, Textarea } from "@/components/ui/Input";
-import { createDraftSignal, saveSignal } from "@/lib/mock/signals";
+import {
+  DEFAULT_AREA_ID,
+  areaOptions,
+  createDraftSignal,
+  findArea,
+  saveSignal
+} from "@/lib/mock/signals";
 
 const durationOptions = [1, 4, 8, 24] as const;
 
@@ -25,7 +31,9 @@ export default function CreatePage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<SignalCategory>("general");
-  const [locationLabel, setLocationLabel] = useState("near Downtown");
+  const [areaId, setAreaId] = useState(DEFAULT_AREA_ID);
+  const selectedArea = findArea(areaId);
+  const [locationLabel, setLocationLabel] = useState(selectedArea.approximateLocationLabel);
   const [radiusMiles, setRadiusMiles] = useState<DiscoveryRadiusMiles>(3);
   const [durationHours, setDurationHours] = useState(DEFAULT_SIGNAL_DURATION_HOURS);
   const [message, setMessage] = useState("");
@@ -39,6 +47,12 @@ export default function CreatePage() {
     []
   );
 
+  function selectArea(nextAreaId: string) {
+    const nextArea = findArea(nextAreaId);
+    setAreaId(nextArea.id);
+    setLocationLabel(nextArea.approximateLocationLabel);
+  }
+
   function submitSignal() {
     const nowMs = Date.now();
     const parsed = createSignalRequestSchema.safeParse({
@@ -46,7 +60,7 @@ export default function CreatePage() {
       description,
       category,
       approximateLocationLabel: locationLabel,
-      coordinates: { lat: 36.1, lng: -80.24 },
+      coordinates: selectedArea.coordinates,
       startsAtMs: nowMs,
       expiresAtMs: nowMs + durationHours * 60 * 60 * 1000,
       visibilityRadiusMiles: radiusMiles
@@ -74,6 +88,20 @@ export default function CreatePage() {
         <div className="privacy-note">
           Vicina shares approximate nearby activity, not exact user location.
         </div>
+        <label className="field">
+          <span>Area</span>
+          <select
+            className="input"
+            onChange={(event) => selectArea(event.target.value)}
+            value={areaId}
+          >
+            {areaOptions.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <Input
           label="Title"
           maxLength={80}

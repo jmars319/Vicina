@@ -20,5 +20,5 @@ fi
 if [[ -f "${REPO_ROOT}/.env.local" ]]; then
   log ".env.local is present"
 else
-  warn ".env.local is not present. This is expected for a fresh scaffold."
+  log ".env.local is not present. This is expected for a fresh scaffold."
 fi

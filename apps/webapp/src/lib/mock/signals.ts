@@ -17,12 +17,20 @@ export type SignalSort = "nearest" | "soonest" | "newest";
 export type TimeFilter = "now" | "today" | "all";
 export type CategoryFilter = SignalCategory | "all";
 
+export interface BrowseArea {
+  id: string;
+  label: string;
+  approximateLocationLabel: string;
+  coordinates: LatLng;
+}
+
 export interface SignalRecord extends VicinaSignal {
   comments: SignalComment[];
   interestedUserIds: string[];
 }
 
 export interface SignalFilters {
+  areaId: string;
   category: CategoryFilter;
   radiusMiles: DiscoveryRadiusMiles;
   sort: SignalSort;
@@ -37,10 +45,41 @@ export const LOCAL_USER: VicinaProfile = {
   updatedAtMs: 0
 };
 
-export const DEFAULT_COORDINATES: LatLng = {
-  lat: 36.1,
-  lng: -80.24
-};
+export const areaOptions: BrowseArea[] = [
+  {
+    id: "downtown-winston-salem",
+    label: "Downtown Winston-Salem",
+    approximateLocationLabel: "near Downtown",
+    coordinates: { lat: 36.1, lng: -80.24 }
+  },
+  {
+    id: "innovation-quarter",
+    label: "Innovation Quarter",
+    approximateLocationLabel: "near the Innovation Quarter",
+    coordinates: { lat: 36.102, lng: -80.246 }
+  },
+  {
+    id: "west-end",
+    label: "West End",
+    approximateLocationLabel: "near West End",
+    coordinates: { lat: 36.095, lng: -80.255 }
+  },
+  {
+    id: "downtown-greensboro",
+    label: "Downtown Greensboro",
+    approximateLocationLabel: "near Downtown Greensboro",
+    coordinates: { lat: 36.0726, lng: -79.792 }
+  },
+  {
+    id: "downtown-raleigh",
+    label: "Downtown Raleigh",
+    approximateLocationLabel: "near Downtown Raleigh",
+    coordinates: { lat: 35.7796, lng: -78.6382 }
+  }
+];
+
+export const DEFAULT_AREA_ID = "downtown-winston-salem";
+export const DEFAULT_COORDINATES: LatLng = findArea(DEFAULT_AREA_ID).coordinates;
 
 export const categoryOptions = [
   { label: "All", value: "all" as const },
@@ -64,7 +103,16 @@ export const sortOptions: { label: string; value: SignalSort }[] = [
   { label: "Newest", value: "newest" }
 ];
 
-const STORAGE_KEY = "vicina.web.signals.v1";
+const STORAGE_KEY = "vicina.web.signals.v2";
+
+export function findArea(areaId: string): BrowseArea {
+  const defaultArea = areaOptions[0];
+  if (!defaultArea) {
+    throw new Error("At least one Vicina browse area is required.");
+  }
+
+  return areaOptions.find((area) => area.id === areaId) ?? defaultArea;
+}
 
 export function loadSignals(nowMs = Date.now()): SignalRecord[] {
   if (typeof window === "undefined") {
@@ -107,7 +155,7 @@ export function findSignal(signalId: string): SignalRecord | undefined {
 export function filterSignals(
   signals: SignalRecord[],
   filters: SignalFilters,
-  origin: LatLng = DEFAULT_COORDINATES,
+  origin: LatLng = findArea(filters.areaId).coordinates,
   nowMs = Date.now()
 ): SignalRecord[] {
   return signals
@@ -151,6 +199,7 @@ export function filterSignals(
 export function createDraftSignal(input: {
   approximateLocationLabel: string;
   category: SignalCategory;
+  coordinates: LatLng;
   description: string;
   expiresAtMs: number;
   startsAtMs: number;
@@ -167,7 +216,7 @@ export function createDraftSignal(input: {
     description: input.description,
     category: input.category,
     approximateLocationLabel: input.approximateLocationLabel,
-    coordinates: DEFAULT_COORDINATES,
+    coordinates: input.coordinates,
     startsAtMs: input.startsAtMs,
     expiresAtMs: input.expiresAtMs,
     visibilityRadiusMiles: input.visibilityRadiusMiles,
@@ -190,7 +239,8 @@ export function getDistanceLabel(signal: SignalRecord, origin: LatLng = DEFAULT_
     return "within 1 mile";
   }
 
-  return `within ${Math.max(1, Math.round(miles))} miles`;
+  const roundedMiles = Math.max(1, Math.round(miles));
+  return `within ${roundedMiles} ${roundedMiles === 1 ? "mile" : "miles"}`;
 }
 
 function seedSignals(nowMs: number): SignalRecord[] {
@@ -257,6 +307,30 @@ function seedSignals(nowMs: number): SignalRecord[] {
       coordinates: { lat: 36.095, lng: -80.255 },
       startsAtMs: nowMs + 90 * 60 * 1000,
       expiresAtMs: nowMs + 4 * 60 * 60 * 1000,
+      visibilityRadiusMiles: 5
+    }),
+    makeSignal({
+      id: "seed-greensboro",
+      authorDisplayName: "Sam",
+      title: "Lunch walk downtown",
+      description: "Grabbing something quick and walking a few blocks if anyone wants company.",
+      category: "food-coffee",
+      approximateLocationLabel: "near Downtown Greensboro",
+      coordinates: { lat: 36.0726, lng: -79.792 },
+      startsAtMs: nowMs + 35 * 60 * 1000,
+      expiresAtMs: nowMs + 3 * 60 * 60 * 1000,
+      visibilityRadiusMiles: 3
+    }),
+    makeSignal({
+      id: "seed-raleigh",
+      authorDisplayName: "Mika",
+      title: "Low-key live set",
+      description: "Heading over early and open to meeting before the first act starts.",
+      category: "music-nightlife",
+      approximateLocationLabel: "near Downtown Raleigh",
+      coordinates: { lat: 35.7796, lng: -78.6382 },
+      startsAtMs: nowMs + 2 * 60 * 60 * 1000,
+      expiresAtMs: nowMs + 6 * 60 * 60 * 1000,
       visibilityRadiusMiles: 5
     })
   ];

@@ -1,4 +1,5 @@
 import {
+  areaOptions,
   categoryOptions,
   radiusOptions,
   sortOptions,
@@ -17,6 +18,19 @@ interface SignalFiltersProps {
 export function SignalFilters({ filters, onChange }: SignalFiltersProps) {
   return (
     <div className="filters" aria-label="Signal filters">
+      <label>
+        <span>Area</span>
+        <select
+          onChange={(event) => onChange({ ...filters, areaId: event.target.value })}
+          value={filters.areaId}
+        >
+          {areaOptions.map((area) => (
+            <option key={area.id} value={area.id}>
+              {area.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <label>
         <span>Distance</span>
         <select

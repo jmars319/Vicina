@@ -7,8 +7,8 @@ The current primary product surface is `apps/webapp`.
 Vicina is now web-first. The Next.js App Router scaffold presents the smallest
 stable hyperlocal coordination loop:
 
-- Browse active nearby signals at `/nearby`.
-- Filter by distance, category, and time.
+- Browse active signals by selected area at `/nearby`.
+- Filter by area, distance, category, and time.
 - Sort explicitly by nearest, soonest, or newest.
 - Create a short-lived signal at `/create`.
 - View signal detail, interest, thread, report, and block actions at `/signal/[id]`.
@@ -32,6 +32,7 @@ muted green, neutral surfaces, and generous spacing.
 - No follower counts.
 - No algorithmic popularity ranking.
 - No public exact coordinates.
+- No implicit live-location lookup before an explicit permission flow exists.
 - No infinite-scroll engagement loop.
 
 ## Run

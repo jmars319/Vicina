@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { SIGNAL_CATEGORY_LABELS } from "@vicina/domain";
+import type { LatLng } from "@vicina/shared-types";
 import type { SignalRecord } from "@/lib/mock/signals";
 import { getDistanceLabel, getInterestCount } from "@/lib/mock/signals";
 import { formatRelativeStart, formatSignalWindow } from "@/lib/utils/time";
 
 interface SignalCardProps {
+  origin?: LatLng;
   signal: SignalRecord;
 }
 
-export function SignalCard({ signal }: SignalCardProps) {
+export function SignalCard({ origin, signal }: SignalCardProps) {
   return (
     <Link className="signal-card" href={`/signal/${signal.id}`}>
       <div className="signal-card__top">
@@ -21,7 +23,7 @@ export function SignalCard({ signal }: SignalCardProps) {
       </div>
       <div className="signal-card__meta">
         <span>{signal.approximateLocationLabel}</span>
-        <span>{getDistanceLabel(signal)}</span>
+        <span>{getDistanceLabel(signal, origin)}</span>
         <span>{formatSignalWindow(signal.startsAtMs, signal.expiresAtMs)}</span>
       </div>
       <div className="signal-card__footer">
