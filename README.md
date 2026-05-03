@@ -1,6 +1,6 @@
-# Vicina
+# Vicina by tenra
 
-Vicina by JAMARQ is an experimental hyperlocal coordination app for seeing
+Vicina by tenra is an experimental hyperlocal coordination app for seeing
 what is happening nearby right now. Its tagline is "What's happening nearby."
 The product is intentionally not a traditional feed, follower, or popularity
 platform.

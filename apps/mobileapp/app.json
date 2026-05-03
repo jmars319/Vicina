@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Vicina",
-    "slug": "vicina-mobileapp",
+    "name": "Vicina by tenra",
+    "slug": "vicina-by-tenra-mobileapp",
     "scheme": "vicina",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -12,10 +12,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jamarq.vicina.mobileapp"
+      "bundleIdentifier": "co.tenra.vicina.mobileapp"
     },
     "android": {
-      "package": "com.jamarq.vicina.mobileapp"
+      "package": "co.tenra.vicina.mobileapp"
     }
   }
 }

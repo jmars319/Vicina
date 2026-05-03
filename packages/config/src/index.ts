@@ -1,4 +1,4 @@
-export const APP_NAME = "Vicina";
+export const APP_NAME = "Vicina by tenra";
 
 export const APP_TAGLINE = "What's happening nearby";
 

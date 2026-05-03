@@ -1,7 +1,7 @@
 [package]
 name = "vicina-desktopapp"
 version = "0.1.0"
-description = "Vicina desktop scaffold"
+description = "Vicina by tenra desktop scaffold"
 edition = "2021"
 
 [build-dependencies]
