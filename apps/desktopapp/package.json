@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "dev:webview": "vite",
-    "build": "tauri build --debug",
+    "build": "tauri build --bundles app",
     "build:webview": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "verify": "pnpm run typecheck && pnpm run build:webview && cargo check --manifest-path src-tauri/Cargo.toml"

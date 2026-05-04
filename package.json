@@ -25,6 +25,8 @@
     "dev:web:status": "./scripts/dev-web-status.sh",
     "build:web": "pnpm run check:packages && pnpm --filter @vicina/webapp run build",
     "build:desktop": "pnpm run check:packages && pnpm --filter @vicina/desktopapp run build:webview && pnpm --filter @vicina/desktopapp exec cargo check --manifest-path src-tauri/Cargo.toml",
+    "package:desktop": "pnpm run check:packages && pnpm --filter @vicina/desktopapp run build",
+    "install:desktop": "pnpm run package:desktop && bash ./scripts/install-desktop-app.sh",
     "build:mobile": "pnpm run check:packages && pnpm --filter @vicina/mobileapp run build",
     "lint": "pnpm exec eslint . --max-warnings=0",
     "typecheck": "pnpm run check:packages && pnpm --filter @vicina/webapp run typecheck && pnpm --filter @vicina/desktopapp run typecheck && pnpm --filter @vicina/mobileapp run typecheck",
