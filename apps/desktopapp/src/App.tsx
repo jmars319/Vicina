@@ -19,6 +19,7 @@ import { readDesktopStore, readLegacyLocalStorage, writeDesktopStore } from "./l
 type CategoryFilter = SignalCategory | "all";
 type SignalSort = "nearest" | "soonest" | "newest";
 type TimeFilter = "now" | "today" | "all";
+type SignalViewMode = "list" | "map";
 
 interface LatLng {
   lat: number;
@@ -54,13 +55,19 @@ interface DraftSignal {
   title: string;
 }
 
+interface LocalProfileDraft {
+  bio: string;
+  displayName: string;
+}
+
 interface VicinaDesktopBoard {
   blockedAuthorIds: string[];
+  localProfile?: VicinaProfile;
   reportedSignalIds: string[];
   signals: SignalRecord[];
 }
 
-const localUser: VicinaProfile = {
+const defaultLocalProfile: VicinaProfile = {
   id: "desktop-user-local",
   displayName: "Local operator",
   bio: "Local Vicina desktop profile.",
@@ -142,14 +149,27 @@ const defaultDraft: DraftSignal = {
   title: ""
 };
 
+function profileDraftFromProfile(profile: VicinaProfile): LocalProfileDraft {
+  return {
+    bio: profile.bio ?? "",
+    displayName: profile.displayName
+  };
+}
+
 export default function App() {
   const [signals, setSignals] = useState<SignalRecord[]>(() => seedSignals(Date.now()));
   const [filters, setFilters] = useState<SignalFilters>(defaultFilters);
   const [selectedSignalId, setSelectedSignalId] = useState<string>(() => signals[0]?.id ?? "");
   const [draft, setDraft] = useState<DraftSignal>(defaultDraft);
+  const [editingSignalId, setEditingSignalId] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
+  const [localProfile, setLocalProfile] = useState<VicinaProfile>(defaultLocalProfile);
+  const [profileDraft, setProfileDraft] = useState<LocalProfileDraft>(() =>
+    profileDraftFromProfile(defaultLocalProfile)
+  );
   const [reportedSignalIds, setReportedSignalIds] = useState<string[]>([]);
   const [blockedAuthorIds, setBlockedAuthorIds] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<SignalViewMode>("list");
   const [isStoreReady, setIsStoreReady] = useState(false);
 
   const selectedArea = findArea(filters.areaId);
@@ -163,6 +183,11 @@ export default function App() {
 
         const legacySignals = readLegacyLocalStorage<SignalRecord[]>(legacySignalStorageKey);
         const nowMs = Date.now();
+
+        if (storedBoard?.localProfile) {
+          setLocalProfile(storedBoard.localProfile);
+          setProfileDraft(profileDraftFromProfile(storedBoard.localProfile));
+        }
 
         if (storedBoard?.signals.length) {
           const nextSignals = storedBoard.signals.map((signal) => expireSignal(signal, nowMs));
@@ -194,10 +219,11 @@ export default function App() {
 
     void writeDesktopStore(storageKey, {
       blockedAuthorIds,
+      localProfile,
       reportedSignalIds,
       signals
     } satisfies VicinaDesktopBoard);
-  }, [blockedAuthorIds, isStoreReady, reportedSignalIds, signals]);
+  }, [blockedAuthorIds, isStoreReady, localProfile, reportedSignalIds, signals]);
 
   const visibleSignals = useMemo(
     () =>
@@ -209,12 +235,14 @@ export default function App() {
 
   const selectedSignal =
     visibleSignals.find((signal) => signal.id === selectedSignalId) ?? visibleSignals[0];
+  const reportedSignals = signals.filter((signal) => reportedSignalIds.includes(signal.id));
+  const isEditingSignal = Boolean(editingSignalId);
 
   function persistSignals(nextSignals: SignalRecord[]) {
     setSignals(nextSignals);
   }
 
-  function handleCreateSignal(event: FormEvent<HTMLFormElement>) {
+  function handleSaveSignal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const title = draft.title.trim();
@@ -226,10 +254,34 @@ export default function App() {
     const area = findArea(draft.areaId);
     const nowMs = Date.now();
     const durationHours = clamp(Number(draft.durationHours) || DEFAULT_SIGNAL_DURATION_HOURS, 1, 24);
+    const existingSignal = editingSignalId
+      ? signals.find((signal) => signal.id === editingSignalId && signal.authorId === localProfile.id)
+      : null;
+
+    if (existingSignal) {
+      const nextSignal = makeSignal({
+        ...existingSignal,
+        title,
+        description,
+        category: draft.category,
+        approximateLocationLabel: area.approximateLocationLabel,
+        coordinates: area.coordinates,
+        expiresAtMs: nowMs + durationHours * 60 * 60 * 1000,
+        visibilityRadiusMiles: draft.radiusMiles,
+        updatedAtMs: nowMs
+      });
+      const nextSignals = replaceSignal(signals, nextSignal);
+      persistSignals(nextSignals);
+      setSelectedSignalId(nextSignal.id);
+      setEditingSignalId(null);
+      setDraft(defaultDraft);
+      return;
+    }
+
     const signal = makeSignal({
       id: `desktop-signal-${nowMs}`,
-      authorId: localUser.id,
-      authorDisplayName: localUser.displayName,
+      authorId: localProfile.id,
+      authorDisplayName: localProfile.displayName,
       title,
       description,
       category: draft.category,
@@ -249,13 +301,50 @@ export default function App() {
     setDraft(defaultDraft);
   }
 
+  function handleEditSignal(signal: SignalRecord) {
+    if (signal.authorId !== localProfile.id) {
+      return;
+    }
+
+    setEditingSignalId(signal.id);
+    setDraft({
+      areaId: findClosestAreaId(signal.coordinates),
+      category: signal.category,
+      description: signal.description,
+      durationHours: String(
+        clamp(Math.ceil((signal.expiresAtMs - Date.now()) / (60 * 60 * 1000)), 1, 24)
+      ),
+      radiusMiles: signal.visibilityRadiusMiles,
+      title: signal.title
+    });
+  }
+
+  function handleCancelSignalEdit() {
+    setEditingSignalId(null);
+    setDraft(defaultDraft);
+  }
+
+  function handleDeleteSignal(signal: SignalRecord) {
+    if (signal.authorId !== localProfile.id || !window.confirm("Delete this signal?")) {
+      return;
+    }
+
+    const nextSignals = signals.filter((candidate) => candidate.id !== signal.id);
+    persistSignals(nextSignals);
+    setReportedSignalIds((current) => current.filter((id) => id !== signal.id));
+    setSelectedSignalId(nextSignals[0]?.id ?? "");
+    if (editingSignalId === signal.id) {
+      handleCancelSignalEdit();
+    }
+  }
+
   function handleToggleInterest(signal: SignalRecord) {
-    const hasInterest = signal.interestedUserIds.includes(localUser.id);
+    const hasInterest = signal.interestedUserIds.includes(localProfile.id);
     const nextSignal: SignalRecord = {
       ...signal,
       interestedUserIds: hasInterest
-        ? signal.interestedUserIds.filter((id) => id !== localUser.id)
-        : [...signal.interestedUserIds, localUser.id],
+        ? signal.interestedUserIds.filter((id) => id !== localProfile.id)
+        : [...signal.interestedUserIds, localProfile.id],
       updatedAtMs: Date.now()
     };
 
@@ -277,8 +366,8 @@ export default function App() {
     const comment: SignalComment = {
       id: `desktop-comment-${nowMs}`,
       signalId: selectedSignal.id,
-      authorId: localUser.id,
-      authorDisplayName: localUser.displayName,
+      authorId: localProfile.id,
+      authorDisplayName: localProfile.displayName,
       body,
       contentStatus: "visible",
       createdAtMs: nowMs,
@@ -296,17 +385,56 @@ export default function App() {
   }
 
   function handleReportSignal(signal: SignalRecord) {
-    if (!reportedSignalIds.includes(signal.id)) {
-      setReportedSignalIds([...reportedSignalIds, signal.id]);
-    }
+    setReportedSignalIds((current) => (current.includes(signal.id) ? current : [...current, signal.id]));
+  }
+
+  function handleClearReport(signalId: string) {
+    setReportedSignalIds((current) => current.filter((id) => id !== signalId));
   }
 
   function handleBlockAuthor(signal: SignalRecord) {
-    if (signal.authorId === localUser.id || blockedAuthorIds.includes(signal.authorId)) {
+    if (signal.authorId === localProfile.id || blockedAuthorIds.includes(signal.authorId)) {
       return;
     }
 
-    setBlockedAuthorIds([...blockedAuthorIds, signal.authorId]);
+    setBlockedAuthorIds((current) => (current.includes(signal.authorId) ? current : [...current, signal.authorId]));
+  }
+
+  function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const displayName = profileDraft.displayName.trim();
+    if (!displayName) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    const bio = profileDraft.bio.trim();
+    const nextProfile: VicinaProfile = {
+      id: localProfile.id,
+      createdAtMs: localProfile.createdAtMs,
+      ...(bio ? { bio } : {}),
+      displayName,
+      updatedAtMs: nowMs
+    };
+
+    setLocalProfile(nextProfile);
+    setSignals((currentSignals) =>
+      currentSignals.map((signal) =>
+        signal.authorId === nextProfile.id
+          ? {
+              ...signal,
+              authorDisplayName: nextProfile.displayName,
+              comments: signal.comments.map((comment) =>
+                comment.authorId === nextProfile.id
+                  ? { ...comment, authorDisplayName: nextProfile.displayName }
+                  : comment
+              ),
+              updatedAtMs: nowMs
+            }
+          : signal
+      )
+    );
   }
 
   return (
@@ -334,6 +462,28 @@ export default function App() {
           </select>
         </label>
 
+        <form className="profile-panel" onSubmit={handleSaveProfile}>
+          <h3>Profile</h3>
+          <label className="field">
+            <span>Name</span>
+            <input
+              value={profileDraft.displayName}
+              onChange={(event) =>
+                setProfileDraft((current) => ({ ...current, displayName: event.target.value }))
+              }
+            />
+          </label>
+          <label className="field">
+            <span>Bio</span>
+            <textarea
+              rows={3}
+              value={profileDraft.bio}
+              onChange={(event) => setProfileDraft((current) => ({ ...current, bio: event.target.value }))}
+            />
+          </label>
+          <button type="submit">Save profile</button>
+        </form>
+
         <div className="rail-metrics" aria-label="Signal summary">
           <div>
             <span>Active</span>
@@ -348,6 +498,37 @@ export default function App() {
             <strong>{blockedAuthorIds.length}</strong>
           </div>
         </div>
+
+        <section className="report-review" aria-label="Reported signals">
+          <h3>Report review</h3>
+          {reportedSignals.length ? (
+            <div className="report-list">
+              {reportedSignals.map((signal) => (
+                <div key={signal.id} className="report-row">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilters((current) => ({
+                        ...current,
+                        areaId: findClosestAreaId(signal.coordinates),
+                        category: "all",
+                        time: "all"
+                      }));
+                      setSelectedSignalId(signal.id);
+                    }}
+                  >
+                    {signal.title}
+                  </button>
+                  <button type="button" onClick={() => handleClearReport(signal.id)}>
+                    Clear
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No reports pending.</p>
+          )}
+        </section>
       </aside>
 
       <section className="signal-column" aria-label="Nearby signals">
@@ -356,7 +537,23 @@ export default function App() {
             <p>Nearby signals</p>
             <h2>{selectedArea.label}</h2>
           </div>
-          <span>{filters.radiusMiles} mi</span>
+          <div className="view-tools">
+            <button
+              className={viewMode === "list" ? "is-active" : ""}
+              onClick={() => setViewMode("list")}
+              type="button"
+            >
+              List
+            </button>
+            <button
+              className={viewMode === "map" ? "is-active" : ""}
+              onClick={() => setViewMode("map")}
+              type="button"
+            >
+              Map
+            </button>
+            <span>{filters.radiusMiles} mi</span>
+          </div>
         </header>
 
         <div className="filter-grid">
@@ -428,30 +625,56 @@ export default function App() {
           </label>
         </div>
 
-        <div className="signal-list">
-          {visibleSignals.map((signal) => (
-            <button
-              className={`signal-row ${selectedSignal?.id === signal.id ? "is-selected" : ""}`}
-              key={signal.id}
-              onClick={() => setSelectedSignalId(signal.id)}
-              type="button"
-            >
-              <span>{SIGNAL_CATEGORY_LABELS[signal.category]}</span>
-              <strong>{signal.title}</strong>
-              <small>
-                {formatRelativeStart(signal.startsAtMs)} ·{" "}
-                {getDistanceLabel(signal, selectedArea.coordinates)}
-              </small>
-            </button>
-          ))}
+        {viewMode === "list" ? (
+          <div className="signal-list">
+            {visibleSignals.map((signal) => (
+              <button
+                className={`signal-row ${selectedSignal?.id === signal.id ? "is-selected" : ""}`}
+                key={signal.id}
+                onClick={() => setSelectedSignalId(signal.id)}
+                type="button"
+              >
+                <span>{SIGNAL_CATEGORY_LABELS[signal.category]}</span>
+                <strong>{signal.title}</strong>
+                <small>
+                  {formatRelativeStart(signal.startsAtMs)} ·{" "}
+                  {getDistanceLabel(signal, selectedArea.coordinates)}
+                </small>
+              </button>
+            ))}
 
-          {visibleSignals.length === 0 ? (
-            <div className="empty-state">
-              <strong>No active signals in this view.</strong>
-              <span>Adjust the filters or create a signal for the selected area.</span>
-            </div>
-          ) : null}
-        </div>
+            {visibleSignals.length === 0 ? (
+              <div className="empty-state">
+                <strong>No active signals in this view.</strong>
+                <span>Adjust the filters or create a signal for the selected area.</span>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="signal-map" aria-label="Signal map">
+            <div className="map-center">{selectedArea.label}</div>
+            {visibleSignals.map((signal) => {
+              const position = getMapPosition(signal, selectedArea.coordinates);
+              return (
+                <button
+                  key={signal.id}
+                  className={`map-dot ${selectedSignal?.id === signal.id ? "is-selected" : ""}`}
+                  onClick={() => setSelectedSignalId(signal.id)}
+                  style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                  type="button"
+                >
+                  <span>{signal.title}</span>
+                </button>
+              );
+            })}
+            {visibleSignals.length === 0 ? (
+              <div className="empty-state">
+                <strong>No active signals in this view.</strong>
+                <span>Adjust the filters or create a signal for the selected area.</span>
+              </div>
+            ) : null}
+          </div>
+        )}
       </section>
 
       <section className="detail-column" aria-label="Selected signal">
@@ -496,15 +719,26 @@ export default function App() {
                 onClick={() => handleToggleInterest(selectedSignal)}
                 type="button"
               >
-                {selectedSignal.interestedUserIds.includes(localUser.id)
+                {selectedSignal.interestedUserIds.includes(localProfile.id)
                   ? "Interest added"
                   : "Add interest"}
               </button>
-              <button onClick={() => handleReportSignal(selectedSignal)} type="button">
-                Report
-              </button>
+              {selectedSignal.authorId === localProfile.id ? (
+                <>
+                  <button onClick={() => handleEditSignal(selectedSignal)} type="button">
+                    Edit
+                  </button>
+                  <button onClick={() => handleDeleteSignal(selectedSignal)} type="button">
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => handleReportSignal(selectedSignal)} type="button">
+                  Report
+                </button>
+              )}
               <button
-                disabled={selectedSignal.authorId === localUser.id}
+                disabled={selectedSignal.authorId === localProfile.id}
                 onClick={() => handleBlockAuthor(selectedSignal)}
                 type="button"
               >
@@ -544,12 +778,17 @@ export default function App() {
           </div>
         )}
 
-        <form className="create-panel" onSubmit={handleCreateSignal}>
+        <form className="create-panel" onSubmit={handleSaveSignal}>
           <header className="section-header compact">
             <div>
-              <p>Create</p>
-              <h2>New signal</h2>
+              <p>{isEditingSignal ? "Edit" : "Create"}</p>
+              <h2>{isEditingSignal ? "Edit signal" : "New signal"}</h2>
             </div>
+            {isEditingSignal ? (
+              <button onClick={handleCancelSignalEdit} type="button">
+                Cancel
+              </button>
+            ) : null}
           </header>
 
           <div className="form-grid">
@@ -634,7 +873,7 @@ export default function App() {
           </div>
 
           <button className="primary-action" type="submit">
-            Create signal
+            {isEditingSignal ? "Save signal" : "Create signal"}
           </button>
         </form>
       </section>
@@ -649,6 +888,25 @@ function findArea(areaId: string): BrowseArea {
   }
 
   return areaOptions.find((area) => area.id === areaId) ?? fallbackArea;
+}
+
+function findClosestAreaId(coordinates: LatLng): string {
+  return areaOptions
+    .map((area) => ({
+      area,
+      distance: distanceMiles(area.coordinates, coordinates)
+    }))
+    .sort((a, b) => a.distance - b.distance)[0]?.area.id ?? defaultAreaId;
+}
+
+function getMapPosition(signal: SignalRecord, origin: LatLng): { x: number; y: number } {
+  const lngDelta = signal.coordinates.lng - origin.lng;
+  const latDelta = signal.coordinates.lat - origin.lat;
+
+  return {
+    x: clamp(50 + lngDelta * 900, 8, 92),
+    y: clamp(50 - latDelta * 1100, 8, 92)
+  };
 }
 
 function filterSignals(
