@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { APP_NAME } from "@vicina/config";
 import {
@@ -14,6 +14,7 @@ import {
   type VicinaProfile,
   type VicinaSignal
 } from "@vicina/domain";
+import { readDesktopStore, readLegacyLocalStorage, writeDesktopStore } from "./lib/desktopStore";
 
 type CategoryFilter = SignalCategory | "all";
 type SignalSort = "nearest" | "soonest" | "newest";
@@ -51,6 +52,12 @@ interface DraftSignal {
   durationHours: string;
   radiusMiles: DiscoveryRadiusMiles;
   title: string;
+}
+
+interface VicinaDesktopBoard {
+  blockedAuthorIds: string[];
+  reportedSignalIds: string[];
+  signals: SignalRecord[];
 }
 
 const localUser: VicinaProfile = {
@@ -95,7 +102,8 @@ const areaOptions: BrowseArea[] = [
 ];
 
 const defaultAreaId = "downtown-winston-salem";
-const storageKey = "vicina.desktop.signals.v1";
+const legacySignalStorageKey = "vicina.desktop.signals.v1";
+const storageKey = "vicina.desktop.board.v2";
 
 const categoryOptions: Array<{ label: string; value: CategoryFilter }> = [
   { label: "All", value: "all" },
@@ -135,15 +143,61 @@ const defaultDraft: DraftSignal = {
 };
 
 export default function App() {
-  const [signals, setSignals] = useState<SignalRecord[]>(() => loadSignals());
+  const [signals, setSignals] = useState<SignalRecord[]>(() => seedSignals(Date.now()));
   const [filters, setFilters] = useState<SignalFilters>(defaultFilters);
   const [selectedSignalId, setSelectedSignalId] = useState<string>(() => signals[0]?.id ?? "");
   const [draft, setDraft] = useState<DraftSignal>(defaultDraft);
   const [commentBody, setCommentBody] = useState("");
   const [reportedSignalIds, setReportedSignalIds] = useState<string[]>([]);
   const [blockedAuthorIds, setBlockedAuthorIds] = useState<string[]>([]);
+  const [isStoreReady, setIsStoreReady] = useState(false);
 
   const selectedArea = findArea(filters.areaId);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    readDesktopStore<VicinaDesktopBoard>(storageKey)
+      .then((storedBoard) => {
+        if (cancelled) return;
+
+        const legacySignals = readLegacyLocalStorage<SignalRecord[]>(legacySignalStorageKey);
+        const nowMs = Date.now();
+
+        if (storedBoard?.signals.length) {
+          const nextSignals = storedBoard.signals.map((signal) => expireSignal(signal, nowMs));
+          setSignals(nextSignals);
+          setReportedSignalIds(Array.isArray(storedBoard.reportedSignalIds) ? storedBoard.reportedSignalIds : []);
+          setBlockedAuthorIds(Array.isArray(storedBoard.blockedAuthorIds) ? storedBoard.blockedAuthorIds : []);
+          setSelectedSignalId(nextSignals[0]?.id ?? "");
+        } else if (Array.isArray(legacySignals) && legacySignals.length > 0) {
+          const nextSignals = legacySignals.map((signal) => expireSignal(signal, nowMs));
+          setSignals(nextSignals);
+          setSelectedSignalId(nextSignals[0]?.id ?? "");
+        }
+
+        setIsStoreReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsStoreReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStoreReady) return;
+
+    void writeDesktopStore(storageKey, {
+      blockedAuthorIds,
+      reportedSignalIds,
+      signals
+    } satisfies VicinaDesktopBoard);
+  }, [blockedAuthorIds, isStoreReady, reportedSignalIds, signals]);
 
   const visibleSignals = useMemo(
     () =>
@@ -158,7 +212,6 @@ export default function App() {
 
   function persistSignals(nextSignals: SignalRecord[]) {
     setSignals(nextSignals);
-    writeSignals(nextSignals);
   }
 
   function handleCreateSignal(event: FormEvent<HTMLFormElement>) {
@@ -596,28 +649,6 @@ function findArea(areaId: string): BrowseArea {
   }
 
   return areaOptions.find((area) => area.id === areaId) ?? fallbackArea;
-}
-
-function loadSignals(nowMs = Date.now()): SignalRecord[] {
-  const stored = window.localStorage.getItem(storageKey);
-  if (!stored) {
-    const seeded = seedSignals(nowMs);
-    writeSignals(seeded);
-    return seeded;
-  }
-
-  try {
-    const parsed = JSON.parse(stored) as SignalRecord[];
-    return parsed.map((signal) => expireSignal(signal, nowMs));
-  } catch {
-    const seeded = seedSignals(nowMs);
-    writeSignals(seeded);
-    return seeded;
-  }
-}
-
-function writeSignals(signals: SignalRecord[]): void {
-  window.localStorage.setItem(storageKey, JSON.stringify(signals));
 }
 
 function filterSignals(
