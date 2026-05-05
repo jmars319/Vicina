@@ -7,9 +7,9 @@ platform.
 
 ## Repo Layout
 
-- `apps/webapp`: Next.js App Router web MVP scaffold and primary product surface.
-- `apps/desktopapp`: Vite + React + Tauri desktop shell.
-- `apps/mobileapp`: Expo React Native MVP scaffold with Expo Router.
+- `apps/desktopapp`: Primary Vite + React + Tauri desktop surface.
+- `apps/webapp`: Secondary Next.js App Router companion surface with the current MVP loop.
+- `apps/mobileapp`: Third-surface Expo React Native scaffold with Expo Router.
 - `packages/*`: Shared Vicina packages for domain logic, contracts, validation, realtime, auth, geo, privacy, UI, and config.
 - `assets/branding/`: Archived design-reference assets.
 - `supabase/`: SQL migration and seed data for the Supabase MVP backend.
@@ -43,7 +43,8 @@ pnpm doctor
 
 ## Dev Harness
 
-`pnpm dev:web` remains the direct interactive Next.js dev command. For repeatable
+`pnpm dev:desktop` is the primary product-surface command. `pnpm dev:web` remains
+the direct interactive Next.js companion command. For repeatable
 start/stop/status flows, use the managed harness:
 
 ```bash
@@ -70,9 +71,15 @@ Edit `.dev/dev-config.sh` to change the managed web port, host, health path, or
 timeouts. The default managed port is `3002` so it can coexist with other local
 projects that commonly use `3000`.
 
-## Web MVP
+## Desktop-First Direction
 
-The primary web surface uses Next.js App Router with a small design system under
+The installed desktop app should become the main Vicina product surface. The current
+web MVP remains useful as the secondary implementation reference while the desktop
+signal board, create flow, detail view, and local review workflow are built out.
+
+## Web Companion MVP
+
+The current web companion surface uses Next.js App Router with a small design system under
 `apps/webapp/src/components`:
 
 - `branding`: SVG Vicina mark, wordmark, and lockup based on the reference image

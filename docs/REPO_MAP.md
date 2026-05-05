@@ -2,9 +2,9 @@
 
 ## Apps
 
-- `apps/webapp`: Next.js application shell and the likely first product surface.
-- `apps/desktopapp`: Tauri desktop shell with a React renderer and a minimal Rust host.
-- `apps/mobileapp`: Expo-style mobile placeholder wired into the shared workspace packages.
+- `apps/desktopapp`: Primary Tauri desktop surface with a React renderer and a minimal Rust host.
+- `apps/webapp`: Secondary Next.js companion surface and current MVP reference implementation.
+- `apps/mobileapp`: Third-surface Expo-style mobile placeholder wired into the shared workspace packages.
 
 ## Shared Packages
 
