@@ -2,6 +2,7 @@ import Link from "next/link";
 import { APP_NAME, APP_TAGLINE } from "@vicina/config";
 import { ArrowRight } from "lucide-react";
 import { VicinaBrand } from "@/components/branding/VicinaBrand";
+import { WorkflowHandoffInbox } from "@/components/handoffs/WorkflowHandoffInbox";
 import { AppHeader } from "@/components/layout/AppHeader";
 
 const principles = [
@@ -82,6 +83,7 @@ export default function HomePage() {
           </article>
         ))}
       </section>
+      <WorkflowHandoffInbox />
     </main>
   );
 }
