@@ -356,6 +356,42 @@ button:disabled {
   font-weight: 700;
 }
 
+.workflow-chooser {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 0 var(--space-6);
+}
+
+.workflow-chooser article {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.workflow-chooser span {
+  color: var(--color-secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.workflow-chooser h2,
+.workflow-chooser p {
+  margin: 0;
+}
+
+.workflow-chooser h2 {
+  font-size: 18px;
+}
+
+.workflow-chooser p {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
 .page-shell {
   min-height: 100vh;
   padding-bottom: 56px;
@@ -805,6 +841,7 @@ button:disabled {
   }
 
   .principles,
+  .workflow-chooser,
   .filters,
   .choice-grid,
   .detail-grid {

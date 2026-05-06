@@ -10,6 +10,24 @@ const principles = [
   "No likes, followers, or popularity ranking"
 ];
 
+const workflowHandoffs = [
+  {
+    label: "Coordinate event",
+    detail: "Send a nearby signal to Assembly for a short brief and Proxy for clean invite copy.",
+    target: "Assembly + Proxy"
+  },
+  {
+    label: "Review safety",
+    detail: "Send a reported signal to Guardrail and Sentinel before any moderation action.",
+    target: "Guardrail + Sentinel"
+  },
+  {
+    label: "Publish local summary",
+    detail: "Turn an expired useful signal into a reviewed local recap without social ranking.",
+    target: "Assembly + Proxy"
+  }
+];
+
 export default function HomePage() {
   return (
     <main className="landing-shell">
@@ -53,6 +71,15 @@ export default function HomePage() {
           <div className="principle" key={principle}>
             {principle}
           </div>
+        ))}
+      </section>
+      <section className="workflow-chooser" aria-label="Suite workflow chooser">
+        {workflowHandoffs.map((handoff) => (
+          <article key={handoff.label}>
+            <span>{handoff.target}</span>
+            <h2>{handoff.label}</h2>
+            <p>{handoff.detail}</p>
+          </article>
         ))}
       </section>
     </main>

@@ -31,6 +31,7 @@
     "build:mobile": "pnpm run check:packages && pnpm --filter @vicina/mobileapp run build",
     "lint": "pnpm exec eslint . --max-warnings=0",
     "typecheck": "pnpm run check:packages && pnpm --filter @vicina/webapp run typecheck && pnpm --filter @vicina/desktopapp run typecheck && pnpm --filter @vicina/mobileapp run typecheck",
+    "verify:handoffs": "node ./scripts/validate-handoffs.mjs",
     "verify:web": "./scripts/verify-web.sh",
     "verify:desktop": "./scripts/verify-desktop.sh",
     "verify:mobile": "./scripts/verify-mobile.sh",

@@ -2,6 +2,7 @@ import type {
   CheckInIntent,
   PilotVenue,
   VicinaCheckIn,
+  VicinaSignal,
   VenueMessage,
   VisibilityMode
 } from "@vicina/domain";
@@ -60,4 +61,45 @@ export interface CreateVenueMessageRequest {
 
 export interface CreateVenueMessageResponse {
   message: VenueMessage;
+}
+
+export interface VicinaWorkflowHandoff {
+  schema: "tenra-vicina.workflow-handoff.v1";
+  exportedAtMs: TimestampMs;
+  sourceApp: "vicina";
+  workflow: "coordinate-event" | "review-safety" | "publish-local-summary";
+  targetApps: Array<"assembly" | "guardrail" | "sentinel" | "proxy">;
+  signal?: Pick<
+    VicinaSignal,
+    "id" | "title" | "description" | "category" | "approximateLocationLabel" | "startsAtMs" | "expiresAtMs"
+  >;
+  operatorNote: string;
+}
+
+export function buildVicinaWorkflowHandoff(input: {
+  workflow: VicinaWorkflowHandoff["workflow"];
+  signal?: VicinaWorkflowHandoff["signal"] | undefined;
+  operatorNote?: string | undefined;
+  exportedAtMs?: TimestampMs | undefined;
+}): VicinaWorkflowHandoff {
+  const targetAppsByWorkflow: Record<VicinaWorkflowHandoff["workflow"], VicinaWorkflowHandoff["targetApps"]> = {
+    "coordinate-event": ["assembly", "proxy"],
+    "review-safety": ["guardrail", "sentinel"],
+    "publish-local-summary": ["assembly", "proxy"]
+  };
+
+  const handoff: VicinaWorkflowHandoff = {
+    schema: "tenra-vicina.workflow-handoff.v1",
+    exportedAtMs: input.exportedAtMs ?? Date.now(),
+    sourceApp: "vicina",
+    workflow: input.workflow,
+    targetApps: targetAppsByWorkflow[input.workflow],
+    operatorNote: input.operatorNote ?? "Route this nearby coordination context to the selected suite apps."
+  };
+
+  if (input.signal) {
+    handoff.signal = input.signal;
+  }
+
+  return handoff;
 }

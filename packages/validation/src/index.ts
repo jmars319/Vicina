@@ -108,6 +108,26 @@ export const reportSignalRequestSchema = z.object({
   details: z.string().trim().max(500).optional()
 });
 
+export const vicinaWorkflowHandoffSchema = z.object({
+  schema: z.literal("tenra-vicina.workflow-handoff.v1"),
+  exportedAtMs: z.number().int().nonnegative(),
+  sourceApp: z.literal("vicina"),
+  workflow: z.enum(["coordinate-event", "review-safety", "publish-local-summary"]),
+  targetApps: z.array(z.enum(["assembly", "guardrail", "sentinel", "proxy"])).min(1),
+  signal: z
+    .object({
+      id: z.string().trim().min(1),
+      title: z.string().trim().min(1),
+      description: z.string().trim().min(1),
+      category: signalCategorySchema,
+      approximateLocationLabel: z.string().trim().min(1),
+      startsAtMs: z.number().int().nonnegative(),
+      expiresAtMs: z.number().int().nonnegative()
+    })
+    .optional(),
+  operatorNote: z.string().trim().min(1).max(1000)
+});
+
 export type ParsedUpsertCheckInRequest = z.infer<typeof upsertCheckInRequestSchema>;
 export type ParsedDeleteCheckInRequest = z.infer<typeof deleteCheckInRequestSchema>;
 export type ParsedCreateVenueMessageRequest = z.infer<
@@ -118,3 +138,4 @@ export type ParsedCreateSignalCommentRequest = z.infer<
   typeof createSignalCommentRequestSchema
 >;
 export type ParsedReportSignalRequest = z.infer<typeof reportSignalRequestSchema>;
+export type ParsedVicinaWorkflowHandoff = z.infer<typeof vicinaWorkflowHandoffSchema>;
