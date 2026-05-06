@@ -34,6 +34,7 @@ pnpm dev:start
 pnpm dev:status
 pnpm dev:verify
 pnpm dev:stop
+pnpm launch:desktop
 pnpm verify:web
 pnpm verify:mobile
 pnpm typecheck
