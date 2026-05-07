@@ -8,6 +8,10 @@ workflow handoff orchestrator
 
 keep unique; route workflow signals to Assembly, Guardrail, Sentinel, and Proxy through explicit handoffs.
 
+## Standalone Mode
+
+Runs as a complete workflow orchestration app with local workflow state, handoff timelines, endpoint health, and operator notes.
+
 ## Accepted Inputs
 
 - No accepted suite contract is registered yet.
