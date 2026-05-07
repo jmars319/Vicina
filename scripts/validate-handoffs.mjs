@@ -21,6 +21,23 @@ function listJsonFiles(dir) {
 const files = listJsonFiles(fixtureDir);
 if (files.length === 0) throw new Error("No handoff fixtures found.");
 
+function buildGuardrailReview(payload) {
+  return {
+    schema: "tenra-guardrail.external-action-review.v1",
+    sourceApp: "vicina",
+    actionKind: "moderation-action",
+    actorLabel: "Vicina workflow inbox",
+    targetLabel: payload.signal?.title ?? payload.workflow,
+    summary: payload.operatorNote,
+    evidence: [
+      { label: "Workflow", value: payload.workflow },
+      { label: "Targets", value: payload.targetApps.join(", ") }
+    ],
+    recommendedDecision: "review",
+    traceId: `vicina-${payload.workflow}-${payload.exportedAtMs}-guardrail`
+  };
+}
+
 for (const file of files) {
   const payload = JSON.parse(fs.readFileSync(file, "utf8"));
   if (!payload || typeof payload !== "object" || typeof payload.schema !== "string") {
@@ -35,6 +52,18 @@ for (const file of files) {
   for (const target of payload.targetApps) {
     if (!expectedTargets.has(target)) {
       throw new Error(`${file} routes to an unsupported target app: ${target}`);
+    }
+  }
+  if (payload.targetApps.includes("guardrail")) {
+    const review = buildGuardrailReview(payload);
+    if (review.schema !== "tenra-guardrail.external-action-review.v1") {
+      throw new Error(`${file} must emit the Guardrail external review schema.`);
+    }
+    if (!review.traceId || !review.traceId.endsWith("-guardrail")) {
+      throw new Error(`${file} must emit a stable Vicina Guardrail traceId.`);
+    }
+    if (review.evidence[1].value !== payload.targetApps.join(", ")) {
+      throw new Error(`${file} Guardrail review must preserve target app evidence.`);
     }
   }
 }

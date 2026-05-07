@@ -13,6 +13,7 @@ type VicinaDeliveryStatus = {
   updatedAt: string;
   message: string;
 };
+type EndpointHealth = Partial<Record<ParsedVicinaWorkflowHandoff["targetApps"][number], string>>;
 
 const endpointStorageKey = "tenra-vicina-suite-endpoints:v1";
 
@@ -34,6 +35,7 @@ export function WorkflowHandoffInbox() {
   const [handoff, setHandoff] = useState<ParsedVicinaWorkflowHandoff | null>(null);
   const [decisionJson, setDecisionJson] = useState("");
   const [endpointConfig, setEndpointConfig] = useState<VicinaEndpointConfig>(readEndpointConfig);
+  const [endpointHealth, setEndpointHealth] = useState<EndpointHealth>({});
   const [deliveryStatuses, setDeliveryStatuses] = useState<VicinaDeliveryStatus[]>([]);
   const [message, setMessage] = useState("Paste a Vicina workflow handoff to review the route.");
 
@@ -50,6 +52,27 @@ export function WorkflowHandoffInbox() {
       status,
       ...current.filter((entry) => entry.target !== status.target)
     ]);
+  }
+
+  async function checkEndpointHealth() {
+    const results: EndpointHealth = {};
+    await Promise.all(
+      (["assembly", "guardrail", "sentinel", "proxy"] as const).map(async (target) => {
+        const endpoint = endpointConfig[target]?.trim();
+        if (!endpoint) {
+          results[target] = "not configured";
+          return;
+        }
+        try {
+          const response = await fetch(endpoint, { method: "OPTIONS" });
+          results[target] = response.ok || response.status === 405 ? `reachable (${response.status})` : `degraded (${response.status})`;
+        } catch (error) {
+          results[target] = error instanceof Error ? error.message : "unreachable";
+        }
+      })
+    );
+    setEndpointHealth(results);
+    setMessage("Endpoint health checked.");
   }
 
   async function sendToNextApp(target: ParsedVicinaWorkflowHandoff["targetApps"][number]) {
@@ -206,8 +229,14 @@ export function WorkflowHandoffInbox() {
           <label key={target}>
             <span>{target} endpoint</span>
             <input value={endpointConfig[target] ?? ""} onChange={(event) => setEndpoint(target, event.target.value)} />
+            {endpointHealth[target] ? <small>{endpointHealth[target]}</small> : null}
           </label>
         ))}
+      </div>
+      <div className="workflow-inbox__actions">
+        <button type="button" onClick={() => void checkEndpointHealth()}>
+          Check endpoint health
+        </button>
       </div>
       <label>
         <span>Guardrail decision JSON</span>
